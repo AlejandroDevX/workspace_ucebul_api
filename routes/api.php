@@ -1,0 +1,56 @@
+<?php
+
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\WorkspaceApplicationController;
+use App\Http\Controllers\Api\WorkspaceApplicationPermissionController;
+use App\Http\Controllers\Api\WorkspaceOtpController;
+use App\Http\Controllers\Api\WorkspaceRoleController;
+use App\Http\Controllers\Api\WorkspaceUserApplicationController;
+use App\Http\Controllers\Api\WorkspaceUserApplicationPermissionController;
+use App\Http\Controllers\Api\WorkspaceUserController;
+use App\Http\Controllers\Api\WorkspaceUserRoleController;
+use Illuminate\Support\Facades\Route;
+
+Route::prefix('auth')->group(function (): void {
+    Route::post('login', [AuthController::class, 'login']);
+    Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
+    Route::post('verify-otp', [AuthController::class, 'verifyOtp']);
+    Route::post('reset-password', [AuthController::class, 'resetPassword']);
+
+    Route::middleware('auth:sanctum')->group(function (): void {
+        Route::post('logout', [AuthController::class, 'logout']);
+        Route::get('me', [AuthController::class, 'me']);
+        Route::get('validate-token', [AuthController::class, 'validateToken']);
+    });
+});
+
+Route::middleware(['auth:sanctum', 'workspace.role:admin,super_admin'])->group(function (): void {
+    Route::apiResource('workspace-users', WorkspaceUserController::class)->except(['destroy']);
+    Route::apiResource('workspace-user-roles', WorkspaceUserRoleController::class)->except(['destroy']);
+    Route::apiResource('workspace-user-applications', WorkspaceUserApplicationController::class)->except(['destroy']);
+    Route::apiResource('workspace-application-permissions', WorkspaceApplicationPermissionController::class)->except(['destroy']);
+    Route::apiResource('workspace-user-application-permissions', WorkspaceUserApplicationPermissionController::class)
+        ->parameters(['workspace-user-application-permissions' => 'workspace_uap'])
+        ->except(['destroy']);
+});
+
+Route::middleware(['auth:sanctum', 'workspace.role:super_admin'])->group(function (): void {
+    Route::delete('workspace-users/{workspace_user}', [WorkspaceUserController::class, 'destroy'])
+        ->name('workspace-users.destroy');
+    Route::delete('workspace-user-roles/{workspace_user_role}', [WorkspaceUserRoleController::class, 'destroy'])
+        ->name('workspace-user-roles.destroy');
+    Route::delete('workspace-user-applications/{workspace_user_application}', [WorkspaceUserApplicationController::class, 'destroy'])
+        ->name('workspace-user-applications.destroy');
+    Route::delete(
+        'workspace-application-permissions/{workspace_application_permission}',
+        [WorkspaceApplicationPermissionController::class, 'destroy']
+    )->name('workspace-application-permissions.destroy');
+    Route::delete(
+        'workspace-user-application-permissions/{workspace_uap}',
+        [WorkspaceUserApplicationPermissionController::class, 'destroy']
+    )->name('workspace-user-application-permissions.destroy');
+
+    Route::apiResource('workspace-roles', WorkspaceRoleController::class);
+    Route::apiResource('workspace-applications', WorkspaceApplicationController::class);
+    Route::apiResource('workspace-otps', WorkspaceOtpController::class)->only(['index', 'show', 'destroy']);
+});

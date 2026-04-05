@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workspace API Docs</title>
+    <link rel="stylesheet" href="./workspace-api-docs.css">
+</head>
+<body>
+    <main class="page">
+        <section class="hero">
+            <p class="eyebrow">Ucebul Workspace API</p>
+            <h1>Documentación de Endpoints</h1>
+            <p>
+                Esta documentación describe los endpoints actuales del módulo Workspace expuestos bajo el prefijo
+                <code>/api</code>. Incluye autenticación con Sanctum, reglas de acceso, payloads esperados y la forma
+                real de las respuestas según los controladores implementados.
+            </p>
+            <div class="pill-row">
+                <span class="pill"><strong>Base URL</strong> <code>/api</code></span>
+                <span class="pill"><strong>Auth</strong> <code>Authorization: Bearer {token}</code></span>
+                <span class="pill"><strong>Formato</strong> JSON</span>
+                <span class="pill"><strong>Roles</strong> <code>admin</code> / <code>super_admin</code></span>
+            </div>
+        </section>
+
+        <h2 class="section-title">Navegación</h2>
+        <section class="card">
+            <nav class="toc">
+                <a href="#general">General</a>
+                <a href="#auth">Auth</a>
+                <a href="#workspace-users">Workspace Users</a>
+                <a href="#workspace-user-roles">Workspace User Roles</a>
+                <a href="#workspace-user-applications">Workspace User Applications</a>
+                <a href="#workspace-application-permissions">Application Permissions</a>
+                <a href="#workspace-user-application-permissions">User Application Permissions</a>
+                <a href="#workspace-roles">Workspace Roles</a>
+                <a href="#workspace-applications">Workspace Applications</a>
+                <a href="#workspace-otps">Workspace OTPs</a>
+            </nav>
+        </section>
+
+        <h2 id="general" class="section-title">General</h2>
+        <section class="grid cols-3">
+            <article class="card">
+                <h3>Respuesta exitosa</h3>
+                <pre><code>{
+  "success": true,
+  "message": "OK",
+  "data": {},
+  "meta": []
+}</code></pre>
+            </article>
+            <article class="card">
+                <h3>Error de validación</h3>
+                <pre><code>{
+  "success": false,
+  "message": "Validation failed",
+  "errors": {
+    "campo": ["..."]
+  }
+}</code></pre>
+            </article>
+            <article class="card">
+                <h3>Autorización</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nivel</th>
+                            <th>Descripción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Público</td>
+                            <td>No requiere token.</td>
+                        </tr>
+                        <tr>
+                            <td>Auth</td>
+                            <td>Requiere <code>auth:sanctum</code>.</td>
+                        </tr>
+                        <tr>
+                            <td>Admin</td>
+                            <td>Requiere rol global <code>admin</code> o <code>super_admin</code>.</td>
+                        </tr>
+                        <tr>
+                            <td>Super Admin</td>
+                            <td>Exclusivo para <code>super_admin</code>.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </article>
+        </section>
+
+        <section class="card">
+            <h3>Notas importantes</h3>
+            <ul>
+                <li>Todas las rutas de esta página usan el prefijo real <code>/api</code>.</li>
+                <li>Los endpoints protegidos requieren el header <code>Authorization: Bearer {token}</code>.</li>
+                <li>Los <code>show</code>, <code>update</code> y <code>destroy</code> devuelven 404 si el registro no existe.</li>
+                <li>El endpoint <code>forgot-password</code> devuelve el OTP en la respuesta para el MVP actual.</li>
+            </ul>
+        </section>
+
+        <h2 id="auth" class="section-title">Auth</h2>
+        <section class="endpoint-list">
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/auth/login</span>
+                    <span class="access public">Público</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>Autentica un <code>WorkspaceUser</code> por email y contraseña y genera un token Sanctum.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card">
+                            <h4>Body</h4>
+                            <pre><code>{
+  "workspace_user_email": "admin@workspace.com",
+  "workspace_user_password": "secret123",
+  "workspace_personal_access_token_name": "optional_token_name"
+}</code></pre>
+                        </section>
+                        <section class="mini-card">
+                            <h4>Respuesta 200</h4>
+                            <pre><code>{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "workspace_user": {
+      "workspace_user_id": 1,
+      "workspace_user_email": "admin@workspace.com",
+      "workspace_user_name": "Admin",
+      "workspace_user_last_name": "Root",
+      "user_roles": [...],
+      "user_applications": [...]
+    },
+    "workspace_access_token": "1|plain-text-token",
+    "workspace_access_token_type": "Bearer"
+  },
+  "meta": []
+}</code></pre>
+                        </section>
+                    </div>
+                    <div class="note">Errores comunes: <code>422</code> por validación, <code>401</code> por credenciales inválidas.</div>
+                </div>
+            </article>
+
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/auth/logout</span>
+                    <span class="access auth">Auth</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>Elimina el token actual del usuario autenticado.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card">
+                            <h4>Body</h4>
+                            <pre><code>{}</code></pre>
+                        </section>
+                        <section class="mini-card">
+                            <h4>Respuesta 200</h4>
+                            <pre><code>{
+  "success": true,
+  "message": "Logout successful",
+  "data": null,
+  "meta": []
+}</code></pre>
+                        </section>
+                    </div>
+                </div>
+            </article>
+
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/auth/me</span>
+                    <span class="access auth">Auth</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>Devuelve el usuario autenticado con roles, aplicaciones y OTPs relacionados.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card">
+                            <h4>Body</h4>
+                            <pre><code>Sin body.</code></pre>
+                        </section>
+                        <section class="mini-card">
+                            <h4>Respuesta 200</h4>
+                            <pre><code>{
+  "success": true,
+  "message": "Authenticated workspace user",
+  "data": {
+    "workspace_user_id": 1,
+    "workspace_user_email": "admin@workspace.com",
+    "user_roles": [...],
+    "user_applications": [...],
+    "otps": [...]
+  },
+  "meta": []
+}</code></pre>
+                        </section>
+                    </div>
+                </div>
+            </article>
+
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/auth/validate-token</span>
+                    <span class="access auth">Auth</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>Confirma que el token sigue siendo válido y devuelve el usuario autenticado.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card">
+                            <h4>Body</h4>
+                            <pre><code>Sin body.</code></pre>
+                        </section>
+                        <section class="mini-card">
+                            <h4>Respuesta 200</h4>
+                            <pre><code>{
+  "success": true,
+  "message": "Token is valid",
+  "data": {
+    "is_valid": true,
+    "workspace_user": {
+      "workspace_user_id": 1,
+      "workspace_user_email": "admin@workspace.com"
+    }
+  },
+  "meta": []
+}</code></pre>
+                        </section>
+                    </div>
+                </div>
+            </article>
+
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/auth/forgot-password</span>
+                    <span class="access public">Público</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>Genera un OTP de 6 dígitos con propósito <code>password_reset</code>.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card">
+                            <h4>Body</h4>
+                            <pre><code>{
+  "workspace_user_email": "admin@workspace.com"
+}</code></pre>
+                        </section>
+                        <section class="mini-card">
+                            <h4>Respuesta 200</h4>
+                            <pre><code>{
+  "success": true,
+  "message": "OTP generated successfully",
+  "data": {
+    "workspace_otp": {
+      "workspace_otp_id": 12,
+      "workspace_otp_email": "admin@workspace.com",
+      "workspace_otp_code": "654321",
+      "workspace_otp_purpose": "password_reset",
+      "workspace_otp_expires_at": "..."
+    },
+    "workspace_user": {
+      "workspace_user_id": 1,
+      "workspace_user_email": "admin@workspace.com"
+    }
+  },
+  "meta": []
+}</code></pre>
+                        </section>
+                    </div>
+                    <div class="note">Actualmente expone el OTP generado en la respuesta para facilitar pruebas del MVP.</div>
+                </div>
+            </article>
+
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/auth/verify-otp</span>
+                    <span class="access public">Público</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>Valida un OTP por email, código y propósito. Solo acepta OTP no usado y no expirado.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card">
+                            <h4>Body</h4>
+                            <pre><code>{
+  "workspace_otp_email": "admin@workspace.com",
+  "workspace_otp_code": "654321",
+  "workspace_otp_purpose": "password_reset"
+}</code></pre>
+                        </section>
+                        <section class="mini-card">
+                            <h4>Respuesta 200</h4>
+                            <pre><code>{
+  "success": true,
+  "message": "OTP is valid",
+  "data": {
+    "is_valid": true,
+    "workspace_otp": {
+      "workspace_otp_id": 12,
+      "workspace_otp_email": "admin@workspace.com",
+      "workspace_otp_code": "654321"
+    }
+  },
+  "meta": []
+}</code></pre>
+                        </section>
+                    </div>
+                </div>
+            </article>
+
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/auth/reset-password</span>
+                    <span class="access public">Público</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>Restablece la contraseña usando email, OTP y nueva contraseña. Marca el OTP como usado y elimina tokens activos.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card">
+                            <h4>Body</h4>
+                            <pre><code>{
+  "workspace_otp_email": "admin@workspace.com",
+  "workspace_otp_code": "654321",
+  "workspace_user_password": "new-password-123",
+  "workspace_otp_purpose": "password_reset"
+}</code></pre>
+                        </section>
+                        <section class="mini-card">
+                            <h4>Respuesta 200</h4>
+                            <pre><code>{
+  "success": true,
+  "message": "Password reset successfully",
+  "data": {
+    "workspace_user": {
+      "workspace_user_id": 1,
+      "workspace_user_email": "admin@workspace.com"
+    }
+  },
+  "meta": []
+}</code></pre>
+                        </section>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <h2 id="workspace-users" class="section-title">Workspace Users</h2>
+        <section class="endpoint-list">
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/workspace-users</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>Lista todos los usuarios Workspace ordenados por <code>workspace_user_id</code> descendente.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace users retrieved successfully",
+  "data": [
+    {
+      "workspace_user_id": 1,
+      "workspace_user_email": "admin@workspace.com",
+      "workspace_user_name": "Admin",
+      "workspace_user_last_name": "Root"
+    }
+  ],
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/workspace-users</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>{
+  "workspace_user_email": "user@workspace.com",
+  "workspace_user_password": "secret123",
+  "workspace_user_name": "Jane",
+  "workspace_user_last_name": "Doe"
+}</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 201</h4><pre><code>{
+  "success": true,
+  "message": "Workspace user created successfully",
+  "data": {
+    "workspace_user_id": 2,
+    "workspace_user_email": "user@workspace.com",
+    "workspace_user_name": "Jane",
+    "workspace_user_last_name": "Doe"
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/workspace-users/{workspace_user}</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>Obtiene un usuario por su <code>workspace_user_id</code>.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace user retrieved successfully",
+  "data": {
+    "workspace_user_id": 2,
+    "workspace_user_email": "user@workspace.com",
+    "workspace_user_name": "Jane",
+    "workspace_user_last_name": "Doe"
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method put">PUT/PATCH</span>
+                    <span class="path">/api/workspace-users/{workspace_user}</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>Actualiza un usuario. <code>workspace_user_password</code> es opcional en update.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>{
+  "workspace_user_email": "user@workspace.com",
+  "workspace_user_password": "optional-new-password",
+  "workspace_user_name": "Jane",
+  "workspace_user_last_name": "Doe"
+}</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace user updated successfully",
+  "data": {
+    "workspace_user_id": 2,
+    "workspace_user_email": "user@workspace.com",
+    "workspace_user_name": "Jane",
+    "workspace_user_last_name": "Doe"
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method delete">DELETE</span>
+                    <span class="path">/api/workspace-users/{workspace_user}</span>
+                    <span class="access super-admin">Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace user deleted successfully",
+  "data": null,
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <h2 id="workspace-user-roles" class="section-title">Workspace User Roles</h2>
+        <section class="endpoint-list">
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/workspace-user-roles</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>Lista relaciones usuario-rol con <code>workspaceUser</code> y <code>workspaceRole</code>.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace user roles retrieved successfully",
+  "data": [
+    {
+      "workspace_user_role_id": 1,
+      "workspace_user_role_workspace_user_id": 2,
+      "workspace_user_role_workspace_role_id": 1,
+      "workspace_user": {...},
+      "workspace_role": {...}
+    }
+  ],
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/workspace-user-roles</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>{
+  "workspace_user_role_workspace_user_id": 2,
+  "workspace_user_role_workspace_role_id": 1
+}</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 201</h4><pre><code>{
+  "success": true,
+  "message": "Workspace user role created successfully",
+  "data": {
+    "workspace_user_role_id": 1,
+    "workspace_user": {...},
+    "workspace_role": {...}
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/workspace-user-roles/{workspace_user_role}</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace user role retrieved successfully",
+  "data": {
+    "workspace_user_role_id": 1,
+    "workspace_user": {...},
+    "workspace_role": {...}
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method put">PUT/PATCH</span>
+                    <span class="path">/api/workspace-user-roles/{workspace_user_role}</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>{
+  "workspace_user_role_workspace_user_id": 2,
+  "workspace_user_role_workspace_role_id": 1
+}</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace user role updated successfully",
+  "data": {
+    "workspace_user_role_id": 1,
+    "workspace_user": {...},
+    "workspace_role": {...}
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method delete">DELETE</span>
+                    <span class="path">/api/workspace-user-roles/{workspace_user_role}</span>
+                    <span class="access super-admin">Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace user role deleted successfully",
+  "data": null,
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <h2 id="workspace-user-applications" class="section-title">Workspace User Applications</h2>
+        <section class="endpoint-list">
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/workspace-user-applications</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>Lista accesos de usuario a aplicaciones con relaciones cargadas.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace user applications retrieved successfully",
+  "data": [
+    {
+      "workspace_user_application_id": 1,
+      "workspace_user_application_workspace_user_id": 2,
+      "workspace_user_application_workspace_application_id": 5,
+      "workspace_user_application_is_active": true,
+      "workspace_user": {...},
+      "workspace_application": {...}
+    }
+  ],
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/workspace-user-applications</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>{
+  "workspace_user_application_workspace_user_id": 2,
+  "workspace_user_application_workspace_application_id": 5,
+  "workspace_user_application_is_active": true
+}</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 201</h4><pre><code>{
+  "success": true,
+  "message": "Workspace user application created successfully",
+  "data": {
+    "workspace_user_application_id": 1,
+    "workspace_user": {...},
+    "workspace_application": {...}
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/workspace-user-applications/{workspace_user_application}</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace user application retrieved successfully",
+  "data": {
+    "workspace_user_application_id": 1,
+    "workspace_user": {...},
+    "workspace_application": {...}
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method put">PUT/PATCH</span>
+                    <span class="path">/api/workspace-user-applications/{workspace_user_application}</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>{
+  "workspace_user_application_workspace_user_id": 2,
+  "workspace_user_application_workspace_application_id": 5,
+  "workspace_user_application_is_active": true
+}</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace user application updated successfully",
+  "data": {
+    "workspace_user_application_id": 1,
+    "workspace_user": {...},
+    "workspace_application": {...}
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method delete">DELETE</span>
+                    <span class="path">/api/workspace-user-applications/{workspace_user_application}</span>
+                    <span class="access super-admin">Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace user application deleted successfully",
+  "data": null,
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <h2 id="workspace-application-permissions" class="section-title">Workspace Application Permissions</h2>
+        <section class="endpoint-list">
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/workspace-application-permissions</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>Lista permisos por aplicación con la relación <code>workspaceApplication</code>.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace application permissions retrieved successfully",
+  "data": [
+    {
+      "workspace_application_permission_id": 3,
+      "workspace_application_permission_workspace_application_id": 5,
+      "workspace_application_permission_name": "Read",
+      "workspace_application_permission_slug": "read",
+      "workspace_application": {...}
+    }
+  ],
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/workspace-application-permissions</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>{
+  "workspace_application_permission_workspace_application_id": 5,
+  "workspace_application_permission_name": "Read",
+  "workspace_application_permission_slug": "read",
+  "workspace_application_permission_description": "Can read records"
+}</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 201</h4><pre><code>{
+  "success": true,
+  "message": "Workspace application permission created successfully",
+  "data": {
+    "workspace_application_permission_id": 3,
+    "workspace_application": {...}
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/workspace-application-permissions/{workspace_application_permission}</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace application permission retrieved successfully",
+  "data": {
+    "workspace_application_permission_id": 3,
+    "workspace_application": {...}
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method put">PUT/PATCH</span>
+                    <span class="path">/api/workspace-application-permissions/{workspace_application_permission}</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>{
+  "workspace_application_permission_workspace_application_id": 5,
+  "workspace_application_permission_name": "Read",
+  "workspace_application_permission_slug": "read",
+  "workspace_application_permission_description": "Can read records"
+}</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace application permission updated successfully",
+  "data": {
+    "workspace_application_permission_id": 3,
+    "workspace_application": {...}
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method delete">DELETE</span>
+                    <span class="path">/api/workspace-application-permissions/{workspace_application_permission}</span>
+                    <span class="access super-admin">Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace application permission deleted successfully",
+  "data": null,
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <h2 id="workspace-user-application-permissions" class="section-title">Workspace User Application Permissions</h2>
+        <section class="endpoint-list">
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/workspace-user-application-permissions</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>Lista permisos asignados a accesos usuario-aplicación.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace user application permissions retrieved successfully",
+  "data": [
+    {
+      "workspace_user_application_permission_id": 2,
+      "workspace_user_application_permission_wua_id": 1,
+      "workspace_user_application_permission_wap_id": 3,
+      "workspace_user_application": {...},
+      "workspace_application_permission": {...}
+    }
+  ],
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/workspace-user-application-permissions</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>{
+  "workspace_user_application_permission_wua_id": 1,
+  "workspace_user_application_permission_wap_id": 3
+}</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 201</h4><pre><code>{
+  "success": true,
+  "message": "Workspace user application permission created successfully",
+  "data": {
+    "workspace_user_application_permission_id": 2,
+    "workspace_user_application": {...},
+    "workspace_application_permission": {...}
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/workspace-user-application-permissions/{workspace_uap}</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace user application permission retrieved successfully",
+  "data": {
+    "workspace_user_application_permission_id": 2,
+    "workspace_user_application": {...},
+    "workspace_application_permission": {...}
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method put">PUT/PATCH</span>
+                    <span class="path">/api/workspace-user-application-permissions/{workspace_uap}</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>{
+  "workspace_user_application_permission_wua_id": 1,
+  "workspace_user_application_permission_wap_id": 3
+}</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace user application permission updated successfully",
+  "data": {
+    "workspace_user_application_permission_id": 2,
+    "workspace_user_application": {...},
+    "workspace_application_permission": {...}
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method delete">DELETE</span>
+                    <span class="path">/api/workspace-user-application-permissions/{workspace_uap}</span>
+                    <span class="access super-admin">Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace user application permission deleted successfully",
+  "data": null,
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <h2 id="workspace-roles" class="section-title">Workspace Roles</h2>
+        <section class="endpoint-list">
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/workspace-roles</span>
+                    <span class="access super-admin">Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>Lista roles globales del Workspace.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace roles retrieved successfully",
+  "data": [
+    {
+      "workspace_role_id": 1,
+      "workspace_role_name": "super_admin"
+    }
+  ],
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/workspace-roles</span>
+                    <span class="access super-admin">Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>{
+  "workspace_role_name": "admin"
+}</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 201</h4><pre><code>{
+  "success": true,
+  "message": "Workspace role created successfully",
+  "data": {
+    "workspace_role_id": 2,
+    "workspace_role_name": "admin"
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/workspace-roles/{workspace_role}</span>
+                    <span class="access super-admin">Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace role retrieved successfully",
+  "data": {
+    "workspace_role_id": 2,
+    "workspace_role_name": "admin"
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method put">PUT/PATCH</span>
+                    <span class="path">/api/workspace-roles/{workspace_role}</span>
+                    <span class="access super-admin">Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>{
+  "workspace_role_name": "admin"
+}</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace role updated successfully",
+  "data": {
+    "workspace_role_id": 2,
+    "workspace_role_name": "admin"
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method delete">DELETE</span>
+                    <span class="path">/api/workspace-roles/{workspace_role}</span>
+                    <span class="access super-admin">Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace role deleted successfully",
+  "data": null,
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <h2 id="workspace-applications" class="section-title">Workspace Applications</h2>
+        <section class="endpoint-list">
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/workspace-applications</span>
+                    <span class="access super-admin">Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>Lista aplicaciones registradas en Workspace.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace applications retrieved successfully",
+  "data": [
+    {
+      "workspace_application_id": 5,
+      "workspace_application_name": "CRM",
+      "workspace_application_slug": "crm",
+      "workspace_application_description": "CRM app",
+      "workspace_application_logo_url": "https://...",
+      "workspace_application_url": "https://crm.local",
+      "workspace_application_is_active": true
+    }
+  ],
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/workspace-applications</span>
+                    <span class="access super-admin">Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>{
+  "workspace_application_name": "CRM",
+  "workspace_application_slug": "crm",
+  "workspace_application_description": "CRM app",
+  "workspace_application_logo_url": "https://example.com/logo.png",
+  "workspace_application_url": "https://crm.local",
+  "workspace_application_is_active": true
+}</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 201</h4><pre><code>{
+  "success": true,
+  "message": "Workspace application created successfully",
+  "data": {
+    "workspace_application_id": 5,
+    "workspace_application_name": "CRM",
+    "workspace_application_slug": "crm"
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/workspace-applications/{workspace_application}</span>
+                    <span class="access super-admin">Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace application retrieved successfully",
+  "data": {
+    "workspace_application_id": 5,
+    "workspace_application_name": "CRM",
+    "workspace_application_slug": "crm"
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method put">PUT/PATCH</span>
+                    <span class="path">/api/workspace-applications/{workspace_application}</span>
+                    <span class="access super-admin">Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>{
+  "workspace_application_name": "CRM",
+  "workspace_application_slug": "crm",
+  "workspace_application_description": "CRM app",
+  "workspace_application_logo_url": "https://example.com/logo.png",
+  "workspace_application_url": "https://crm.local",
+  "workspace_application_is_active": true
+}</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace application updated successfully",
+  "data": {
+    "workspace_application_id": 5,
+    "workspace_application_name": "CRM",
+    "workspace_application_slug": "crm"
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method delete">DELETE</span>
+                    <span class="path">/api/workspace-applications/{workspace_application}</span>
+                    <span class="access super-admin">Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace application deleted successfully",
+  "data": null,
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <h2 id="workspace-otps" class="section-title">Workspace OTPs</h2>
+        <section class="endpoint-list">
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/workspace-otps</span>
+                    <span class="access super-admin">Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>Lista OTPs existentes. Este acceso administrativo es mínimo y solo de lectura general.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace OTPs retrieved successfully",
+  "data": [
+    {
+      "workspace_otp_id": 12,
+      "workspace_otp_workspace_user_id": 1,
+      "workspace_otp_email": "admin@workspace.com",
+      "workspace_otp_code": "654321",
+      "workspace_otp_purpose": "password_reset",
+      "workspace_otp_expires_at": "...",
+      "workspace_otp_used_at": null
+    }
+  ],
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/workspace-otps/{workspace_otp}</span>
+                    <span class="access super-admin">Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace OTP retrieved successfully",
+  "data": {
+    "workspace_otp_id": 12,
+    "workspace_otp_email": "admin@workspace.com",
+    "workspace_otp_code": "654321"
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method delete">DELETE</span>
+                    <span class="path">/api/workspace-otps/{workspace_otp}</span>
+                    <span class="access super-admin">Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace OTP deleted successfully",
+  "data": null,
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+        </section>
+    </main>
+</body>
+</html>
