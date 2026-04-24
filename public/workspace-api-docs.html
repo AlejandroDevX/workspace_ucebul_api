@@ -34,6 +34,7 @@
                 <a href="#workspace-user-applications">Workspace User Applications</a>
                 <a href="#workspace-application-modules">Workspace Application Modules</a>
                 <a href="#workspace-application-permissions">Application Permissions</a>
+                <a href="#workspace-application-role-permissions">Role Permission Assignment</a>
                 <a href="#workspace-user-application-permissions">User Application Permissions</a>
                 <a href="#workspace-roles">Workspace Roles</a>
                 <a href="#workspace-applications">Workspace Applications</a>
@@ -1039,6 +1040,64 @@ GET /api/workspace-application-modules?application_slug=ucebul-app</code></pre><
             </article>
             <article class="endpoint-card">
                 <div class="endpoint-head">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/workspace-application-permissions?grouped_by=application_module</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>Devuelve los permisos como árbol <code>Aplicación -> Módulos -> Permisos</code>. La respuesta plana anterior se mantiene cuando no se envía <code>grouped_by</code>.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Query</h4><pre><code>GET /api/workspace-application-permissions?grouped_by=application_module</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace application permissions retrieved successfully",
+  "data": [
+    {
+      "workspace_application_id": 1,
+      "workspace_application_name": "UCEBUL APP",
+      "workspace_application_slug": "ucebul-app",
+      "modules": [
+        {
+          "workspace_application_module_id": 1,
+          "workspace_application_module_name": "Usuarios",
+          "workspace_application_module_slug": "users",
+          "workspace_application_module_icon": "users",
+          "workspace_application_module_order": 1,
+          "permissions": [
+            {
+              "workspace_application_permission_id": 1,
+              "workspace_application_permission_workspace_application_id": 1,
+              "workspace_application_permission_workspace_application_module_id": 1,
+              "workspace_application_permission_name": "Ver usuarios",
+              "workspace_application_permission_slug": "users.view",
+              "workspace_application_permission_description": "Puede ver usuarios"
+            }
+          ]
+        }
+      ],
+      "without_module": [
+        {
+          "workspace_application_permission_id": 99,
+          "workspace_application_permission_workspace_application_id": 1,
+          "workspace_application_permission_workspace_application_module_id": null,
+          "workspace_application_permission_name": "Permiso sin módulo",
+          "workspace_application_permission_slug": "legacy.permission",
+          "workspace_application_permission_description": null
+        }
+      ]
+    }
+  ],
+  "meta": []
+}</code></pre></section>
+                    </div>
+                    <div class="note">
+                        Los módulos se ordenan por <code>workspace_application_module_order</code> y los permisos por nombre.
+                        Los permisos sin módulo se devuelven en <code>without_module</code>.
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
                     <span class="method post">POST</span>
                     <span class="path">/api/workspace-application-permissions</span>
                     <span class="access admin">Admin / Super Admin</span>
@@ -1140,8 +1199,189 @@ GET /api/workspace-application-modules?application_slug=ucebul-app</code></pre><
             </article>
         </section>
 
+        <h2 id="workspace-application-role-permissions" class="section-title">Workspace Application Role Permissions</h2>
+        <section class="endpoint-list">
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/workspace-application-roles/{workspace_application_role}/permissions-tree</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>Devuelve el árbol de permisos de un rol interno para asignación masiva por módulos. Solo incluye permisos de la aplicación a la que pertenece el rol.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace application role permissions tree retrieved successfully",
+  "data": {
+    "role": {
+      "workspace_application_role_id": 1,
+      "workspace_application_role_name": "Administrador",
+      "workspace_application_role_slug": "admin",
+      "workspace_application_role_workspace_application_id": 1
+    },
+    "application": {
+      "workspace_application_id": 1,
+      "workspace_application_name": "UCEBUL App",
+      "workspace_application_slug": "ucebul-app"
+    },
+    "modules": [
+      {
+        "workspace_application_module_id": 1,
+        "workspace_application_module_name": "Usuarios",
+        "workspace_application_module_slug": "users",
+        "workspace_application_module_order": 1,
+        "permissions": [
+          {
+            "workspace_application_permission_id": 1,
+            "workspace_application_permission_name": "Ver usuarios",
+            "workspace_application_permission_slug": "users.view",
+            "is_assigned": true
+          }
+        ]
+      }
+    ],
+    "without_module": [
+      {
+        "workspace_application_permission_id": 99,
+        "workspace_application_permission_name": "Permiso legacy",
+        "workspace_application_permission_slug": "legacy.permission",
+        "is_assigned": false
+      }
+    ]
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method put">PUT</span>
+                    <span class="path">/api/workspace-application-roles/{workspace_application_role}/permissions</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>Reemplaza en lote los permisos asignados al rol. Todos los <code>permission_ids</code> deben pertenecer a la misma aplicación del rol. Un array vacío elimina todas las asignaciones.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>{
+  "permission_ids": [1, 2, 3, 4]
+}</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace application role permissions updated successfully",
+  "data": {
+    "role": {
+      "workspace_application_role_id": 1,
+      "workspace_application_role_name": "Administrador",
+      "workspace_application_role_slug": "admin",
+      "workspace_application_role_workspace_application_id": 1
+    },
+    "assigned_permission_ids": [1, 2, 3, 4]
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                    <div class="note">Los endpoints antiguos de <code>workspace-application-role-permissions</code> siguen disponibles para CRUD individual.</div>
+                </div>
+            </article>
+        </section>
+
         <h2 id="workspace-user-application-permissions" class="section-title">Workspace User Application Permissions</h2>
         <section class="endpoint-list">
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/workspace-user-applications/{workspace_user_application}/effective-permissions-tree</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>Devuelve permisos efectivos del acceso usuario-aplicación agrupados por módulo. Fórmula: permisos efectivos = permisos del rol + overrides <code>allow</code> - overrides <code>deny</code>.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace user effective permissions tree retrieved successfully",
+  "data": {
+    "access": {
+      "workspace_user_application_id": 10,
+      "workspace_user_application_is_active": true,
+      "workspace_user": {
+        "workspace_user_id": 1,
+        "workspace_user_name": "Jose Alejandro",
+        "workspace_user_last_name": "Sabogal Loaiza",
+        "workspace_user_email": "jose@example.com"
+      },
+      "workspace_application": {
+        "workspace_application_id": 1,
+        "workspace_application_name": "UCEBUL App",
+        "workspace_application_slug": "ucebul-app"
+      },
+      "workspace_application_role": {
+        "workspace_application_role_id": 2,
+        "workspace_application_role_name": "Administrador",
+        "workspace_application_role_slug": "admin"
+      }
+    },
+    "summary": {
+      "role_permission_count": 12,
+      "direct_allow_count": 2,
+      "direct_deny_count": 1,
+      "effective_permission_count": 13
+    },
+    "modules": [
+      {
+        "workspace_application_module_id": 1,
+        "workspace_application_module_name": "Actividades",
+        "workspace_application_module_slug": "activities",
+        "workspace_application_module_order": 1,
+        "permissions": [
+          {
+            "workspace_application_permission_id": 1,
+            "workspace_application_permission_name": "Aprobar actividades",
+            "workspace_application_permission_slug": "activities.approve",
+            "is_from_role": true,
+            "is_direct_allow": false,
+            "is_direct_deny": false,
+            "is_effectively_allowed": true
+          }
+        ]
+      }
+    ],
+    "without_module": []
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method put">PUT</span>
+                    <span class="path">/api/workspace-user-applications/{workspace_user_application}/permission-overrides</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>Reemplaza overrides manuales del usuario. Guarda <code>allow</code> solo para permisos que no vienen por rol y <code>deny</code> solo para permisos heredados que fueron revocados.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>{
+  "allowed_permission_ids": [3, 5],
+  "denied_permission_ids": [2, 4]
+}</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace user permission overrides updated successfully",
+  "data": {
+    "allowed_permission_ids": [3, 5],
+    "denied_permission_ids": [2, 4]
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                    <div class="note">Todos los IDs deben pertenecer a la aplicación del acceso. Un permiso no puede estar en allow y deny al mismo tiempo.</div>
+                </div>
+            </article>
             <article class="endpoint-card">
                 <div class="endpoint-head">
                     <span class="method get">GET</span>
@@ -1179,7 +1419,8 @@ GET /api/workspace-application-modules?application_slug=ucebul-app</code></pre><
                     <div class="endpoint-grid">
                         <section class="mini-card"><h4>Body</h4><pre><code>{
   "workspace_user_application_permission_wua_id": 1,
-  "workspace_user_application_permission_wap_id": 3
+  "workspace_user_application_permission_wap_id": 3,
+  "workspace_user_application_permission_effect": "allow"
 }</code></pre></section>
                         <section class="mini-card"><h4>Respuesta 201</h4><pre><code>{
   "success": true,
@@ -1226,7 +1467,8 @@ GET /api/workspace-application-modules?application_slug=ucebul-app</code></pre><
                     <div class="endpoint-grid">
                         <section class="mini-card"><h4>Body</h4><pre><code>{
   "workspace_user_application_permission_wua_id": 1,
-  "workspace_user_application_permission_wap_id": 3
+  "workspace_user_application_permission_wap_id": 3,
+  "workspace_user_application_permission_effect": "deny"
 }</code></pre></section>
                         <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
   "success": true,

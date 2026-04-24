@@ -50,6 +50,7 @@ class WorkspaceUserApplicationPermissionController extends Controller
                         $request->input('workspace_user_application_permission_wua_id')
                     )),
             ],
+            'workspace_user_application_permission_effect' => ['sometimes', 'string', Rule::in(['allow', 'deny'])],
         ]);
 
         $validator->after(function ($validator) use ($request): void {
@@ -79,7 +80,10 @@ class WorkspaceUserApplicationPermissionController extends Controller
             return $this->errorResponse('Validation failed', 422, $validator->errors()->toArray());
         }
 
-        $workspaceUserApplicationPermission = WorkspaceUserApplicationPermission::query()->create($validator->validated());
+        $validated = $validator->validated();
+        $validated['workspace_user_application_permission_effect'] ??= 'allow';
+
+        $workspaceUserApplicationPermission = WorkspaceUserApplicationPermission::query()->create($validated);
 
         return $this->successResponse(
             $workspaceUserApplicationPermission->load([
@@ -128,6 +132,7 @@ class WorkspaceUserApplicationPermissionController extends Controller
                         'workspace_user_application_permission_id'
                     ),
             ],
+            'workspace_user_application_permission_effect' => ['sometimes', 'string', Rule::in(['allow', 'deny'])],
         ]);
 
         $validator->after(function ($validator) use ($request): void {
@@ -157,7 +162,10 @@ class WorkspaceUserApplicationPermissionController extends Controller
             return $this->errorResponse('Validation failed', 422, $validator->errors()->toArray());
         }
 
-        $workspaceUserApplicationPermission->update($validator->validated());
+        $validated = $validator->validated();
+        $validated['workspace_user_application_permission_effect'] ??= 'allow';
+
+        $workspaceUserApplicationPermission->update($validated);
 
         return $this->successResponse(
             $workspaceUserApplicationPermission->fresh()->load([

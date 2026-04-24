@@ -21,6 +21,7 @@ class WorkspaceUserApplicationPermission extends Model
     protected $fillable = [
         'workspace_user_application_permission_wua_id',
         'workspace_user_application_permission_wap_id',
+        'workspace_user_application_permission_effect',
     ];
 
     protected function casts(): array

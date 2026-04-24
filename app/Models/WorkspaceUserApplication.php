@@ -90,13 +90,23 @@ class WorkspaceUserApplication extends Model
 
         if ($this->relationLoaded('userApplicationPermissions')) {
             $userPermissions = $this->userApplicationPermissions
+                ->filter(fn (WorkspaceUserApplicationPermission $permission) => $permission->workspace_user_application_permission_effect === 'allow')
                 ->filter(fn (WorkspaceUserApplicationPermission $permission) => $permission->relationLoaded('workspaceApplicationPermission'))
                 ->map(fn (WorkspaceUserApplicationPermission $permission) => $permission->workspaceApplicationPermission)
                 ->filter();
         }
 
+        $deniedPermissionIds = $this->relationLoaded('userApplicationPermissions')
+            ? $this->userApplicationPermissions
+                ->filter(fn (WorkspaceUserApplicationPermission $permission) => $permission->workspace_user_application_permission_effect === 'deny')
+                ->pluck('workspace_user_application_permission_wap_id')
+                ->map(fn ($permissionId) => (int) $permissionId)
+                ->all()
+            : [];
+
         return $rolePermissions
             ->merge($userPermissions)
+            ->reject(fn ($permission) => in_array((int) $permission->workspace_application_permission_id, $deniedPermissionIds, true))
             ->unique('workspace_application_permission_id')
             ->values()
             ->toArray();

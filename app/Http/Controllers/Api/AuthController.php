@@ -373,11 +373,20 @@ class AuthController extends Controller
         $rolePermissions = $workspaceUserApplication->workspaceApplicationRole?->applicationPermissions ?? collect();
 
         $userPermissions = $workspaceUserApplication->userApplicationPermissions
+            ->filter(fn ($permission) => $permission->workspace_user_application_permission_effect === 'allow')
             ->map(fn ($permission) => $permission->workspaceApplicationPermission)
             ->filter();
+        $deniedPermissionIds = $workspaceUserApplication->userApplicationPermissions
+            ->filter(fn ($permission) => $permission->workspace_user_application_permission_effect === 'deny')
+            ->pluck('workspace_user_application_permission_wap_id')
+            ->map(fn ($permissionId) => (int) $permissionId)
+            ->all();
 
         return new Collection(
-            $this->deduplicatePermissions($rolePermissions->merge($userPermissions))->values()->all()
+            $this->deduplicatePermissions($rolePermissions->merge($userPermissions))
+                ->reject(fn (WorkspaceApplicationPermission $permission) => in_array((int) $permission->workspace_application_permission_id, $deniedPermissionIds, true))
+                ->values()
+                ->all()
         );
     }
 

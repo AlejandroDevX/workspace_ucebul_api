@@ -34,9 +34,25 @@ Route::middleware(['auth:sanctum', 'workspace.role:admin,super_admin'])->group(f
     Route::get('workspace-applications', [WorkspaceApplicationController::class, 'index']);
     Route::get('workspace-applications/{workspace_application}', [WorkspaceApplicationController::class, 'show']);
     Route::apiResource('workspace-user-roles', WorkspaceUserRoleController::class)->except(['destroy']);
+    Route::get(
+        'workspace-user-applications/{workspace_user_application}/effective-permissions-tree',
+        [WorkspaceUserApplicationController::class, 'effectivePermissionsTree']
+    )->name('workspace-user-applications.effective-permissions-tree');
+    Route::put(
+        'workspace-user-applications/{workspace_user_application}/permission-overrides',
+        [WorkspaceUserApplicationController::class, 'updatePermissionOverrides']
+    )->name('workspace-user-applications.permission-overrides.update');
     Route::apiResource('workspace-user-applications', WorkspaceUserApplicationController::class)->except(['destroy']);
     Route::apiResource('workspace-application-modules', WorkspaceApplicationModuleController::class)->except(['destroy']);
     Route::apiResource('workspace-application-permissions', WorkspaceApplicationPermissionController::class)->except(['destroy']);
+    Route::get(
+        'workspace-application-roles/{workspace_application_role}/permissions-tree',
+        [WorkspaceApplicationRoleController::class, 'permissionsTree']
+    )->name('workspace-application-roles.permissions-tree');
+    Route::put(
+        'workspace-application-roles/{workspace_application_role}/permissions',
+        [WorkspaceApplicationRoleController::class, 'updatePermissions']
+    )->name('workspace-application-roles.permissions.update');
     Route::apiResource('workspace-application-roles', WorkspaceApplicationRoleController::class)->except(['destroy']);
     Route::apiResource('workspace-application-role-permissions', WorkspaceApplicationRolePermissionController::class)
         ->parameters(['workspace-application-role-permissions' => 'workspace_arp'])
