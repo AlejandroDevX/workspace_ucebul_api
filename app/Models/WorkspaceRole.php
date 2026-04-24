@@ -21,6 +21,8 @@ class WorkspaceRole extends Model
 
     protected $fillable = [
         'workspace_role_name',
+        'workspace_role_slug',
+        'workspace_role_description',
     ];
 
     protected function casts(): array

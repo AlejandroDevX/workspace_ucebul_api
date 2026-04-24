@@ -1,7 +1,6 @@
 <?php
 
 namespace App\Models;
-
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,9 +18,14 @@ class WorkspaceUserApplication extends Model
 
     public const UPDATED_AT = 'workspace_user_application_updated_at';
 
+    protected $appends = [
+        'workspace_user_application_effective_permissions',
+    ];
+
     protected $fillable = [
         'workspace_user_application_workspace_user_id',
         'workspace_user_application_workspace_application_id',
+        'workspace_user_application_workspace_application_role_id',
         'workspace_user_application_is_active',
     ];
 
@@ -52,6 +56,15 @@ class WorkspaceUserApplication extends Model
         );
     }
 
+    public function workspaceApplicationRole(): BelongsTo
+    {
+        return $this->belongsTo(
+            WorkspaceApplicationRole::class,
+            'workspace_user_application_workspace_application_role_id',
+            'workspace_application_role_id'
+        );
+    }
+
     public function userApplicationPermissions(): HasMany
     {
         return $this->hasMany(
@@ -59,5 +72,33 @@ class WorkspaceUserApplication extends Model
             'workspace_user_application_permission_wua_id',
             'workspace_user_application_id'
         );
+    }
+
+    public function getWorkspaceUserApplicationEffectivePermissionsAttribute(): array
+    {
+        $rolePermissions = collect();
+
+        if (
+            $this->relationLoaded('workspaceApplicationRole')
+            && $this->workspaceApplicationRole
+            && $this->workspaceApplicationRole->relationLoaded('applicationPermissions')
+        ) {
+            $rolePermissions = $this->workspaceApplicationRole->applicationPermissions;
+        }
+
+        $userPermissions = collect();
+
+        if ($this->relationLoaded('userApplicationPermissions')) {
+            $userPermissions = $this->userApplicationPermissions
+                ->filter(fn (WorkspaceUserApplicationPermission $permission) => $permission->relationLoaded('workspaceApplicationPermission'))
+                ->map(fn (WorkspaceUserApplicationPermission $permission) => $permission->workspaceApplicationPermission)
+                ->filter();
+        }
+
+        return $rolePermissions
+            ->merge($userPermissions)
+            ->unique('workspace_application_permission_id')
+            ->values()
+            ->toArray();
     }
 }

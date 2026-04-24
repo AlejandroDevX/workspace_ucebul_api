@@ -53,4 +53,22 @@ class WorkspaceApplication extends Model
             'workspace_application_id'
         );
     }
+
+    public function applicationModules(): HasMany
+    {
+        return $this->hasMany(
+            WorkspaceApplicationModule::class,
+            'workspace_application_module_workspace_application_id',
+            'workspace_application_id'
+        );
+    }
+
+    public function applicationRoles(): HasMany
+    {
+        return $this->hasMany(
+            WorkspaceApplicationRole::class,
+            'workspace_application_role_workspace_application_id',
+            'workspace_application_id'
+        );
+    }
 }

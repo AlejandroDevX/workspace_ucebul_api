@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class WorkspaceApplicationPermission extends Model
@@ -21,6 +22,7 @@ class WorkspaceApplicationPermission extends Model
 
     protected $fillable = [
         'workspace_application_permission_workspace_application_id',
+        'workspace_application_permission_workspace_application_module_id',
         'workspace_application_permission_name',
         'workspace_application_permission_slug',
         'workspace_application_permission_description',
@@ -43,12 +45,42 @@ class WorkspaceApplicationPermission extends Model
         );
     }
 
+    public function applicationModule(): BelongsTo
+    {
+        return $this->belongsTo(
+            WorkspaceApplicationModule::class,
+            'workspace_application_permission_workspace_application_module_id',
+            'workspace_application_module_id'
+        );
+    }
+
     public function userApplicationPermissions(): HasMany
     {
         return $this->hasMany(
             WorkspaceUserApplicationPermission::class,
             'workspace_user_application_permission_wap_id',
             'workspace_application_permission_id'
+        );
+    }
+
+    public function applicationRolePermissions(): HasMany
+    {
+        return $this->hasMany(
+            WorkspaceApplicationRolePermission::class,
+            'workspace_application_role_permission_wap_id',
+            'workspace_application_permission_id'
+        );
+    }
+
+    public function applicationRoles(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            WorkspaceApplicationRole::class,
+            'workspace_application_role_permissions',
+            'workspace_application_role_permission_wap_id',
+            'workspace_application_role_permission_war_id',
+            'workspace_application_permission_id',
+            'workspace_application_role_id'
         );
     }
 }

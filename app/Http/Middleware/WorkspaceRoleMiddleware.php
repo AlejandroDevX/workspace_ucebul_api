@@ -31,12 +31,20 @@ class WorkspaceRoleMiddleware
 
         $workspaceUser->loadMissing('userRoles.workspaceRole');
 
-        $workspaceUserRoleNames = $workspaceUser->userRoles
-            ->pluck('workspaceRole.workspace_role_name')
+        $workspaceUserRoleIdentifiers = $workspaceUser->userRoles
+            ->map(function ($workspaceUserRole) {
+                $workspaceRole = $workspaceUserRole->workspaceRole;
+
+                if (! $workspaceRole) {
+                    return null;
+                }
+
+                return $workspaceRole->workspace_role_slug ?: $workspaceRole->workspace_role_name;
+            })
             ->filter()
             ->values();
 
-        $hasAllowedWorkspaceRole = $workspaceUserRoleNames
+        $hasAllowedWorkspaceRole = $workspaceUserRoleIdentifiers
             ->intersect($allowedWorkspaceRoles)
             ->isNotEmpty();
 

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\WorkspaceApplicationPermission;
+use App\Models\WorkspaceUserApplication;
 use App\Models\WorkspaceUserApplicationPermission;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,11 +13,23 @@ use Illuminate\Validation\Rule;
 
 class WorkspaceUserApplicationPermissionController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         return $this->successResponse(
             WorkspaceUserApplicationPermission::query()
-                ->with(['workspaceUserApplication', 'workspaceApplicationPermission'])
+                ->with([
+                    'workspaceUserApplication.workspaceUser',
+                    'workspaceUserApplication.workspaceApplication',
+                    'workspaceUserApplication.workspaceApplicationRole',
+                    'workspaceApplicationPermission.workspaceApplication',
+                ])
+                ->when(
+                    $request->filled('workspace_user_application_permission_wua_id'),
+                    fn ($query) => $query->where(
+                        'workspace_user_application_permission_wua_id',
+                        $request->integer('workspace_user_application_permission_wua_id')
+                    )
+                )
                 ->orderByDesc('workspace_user_application_permission_id')
                 ->get(),
             'Workspace user application permissions retrieved successfully'
@@ -38,6 +52,29 @@ class WorkspaceUserApplicationPermissionController extends Controller
             ],
         ]);
 
+        $validator->after(function ($validator) use ($request): void {
+            $workspaceUserApplicationId = $request->input('workspace_user_application_permission_wua_id');
+            $workspaceApplicationPermissionId = $request->input('workspace_user_application_permission_wap_id');
+
+            if (! $workspaceUserApplicationId || ! $workspaceApplicationPermissionId) {
+                return;
+            }
+
+            $workspaceUserApplication = WorkspaceUserApplication::query()->find($workspaceUserApplicationId);
+            $workspaceApplicationPermission = WorkspaceApplicationPermission::query()->find($workspaceApplicationPermissionId);
+
+            if (
+                $workspaceUserApplication
+                && $workspaceApplicationPermission
+                && (int) $workspaceUserApplication->workspace_user_application_workspace_application_id !== (int) $workspaceApplicationPermission->workspace_application_permission_workspace_application_id
+            ) {
+                $validator->errors()->add(
+                    'workspace_user_application_permission_wap_id',
+                    'The selected permission does not belong to the same application as the selected user access.'
+                );
+            }
+        });
+
         if ($validator->fails()) {
             return $this->errorResponse('Validation failed', 422, $validator->errors()->toArray());
         }
@@ -46,8 +83,10 @@ class WorkspaceUserApplicationPermissionController extends Controller
 
         return $this->successResponse(
             $workspaceUserApplicationPermission->load([
-                'workspaceUserApplication',
-                'workspaceApplicationPermission',
+                'workspaceUserApplication.workspaceUser',
+                'workspaceUserApplication.workspaceApplication',
+                'workspaceUserApplication.workspaceApplicationRole',
+                'workspaceApplicationPermission.workspaceApplication',
             ]),
             'Workspace user application permission created successfully',
             201
@@ -58,7 +97,12 @@ class WorkspaceUserApplicationPermissionController extends Controller
     {
         return $this->successResponse(
             WorkspaceUserApplicationPermission::query()
-                ->with(['workspaceUserApplication', 'workspaceApplicationPermission'])
+                ->with([
+                    'workspaceUserApplication.workspaceUser',
+                    'workspaceUserApplication.workspaceApplication',
+                    'workspaceUserApplication.workspaceApplicationRole',
+                    'workspaceApplicationPermission.workspaceApplication',
+                ])
                 ->findOrFail($workspace_uap),
             'Workspace user application permission retrieved successfully'
         );
@@ -86,6 +130,29 @@ class WorkspaceUserApplicationPermissionController extends Controller
             ],
         ]);
 
+        $validator->after(function ($validator) use ($request): void {
+            $workspaceUserApplicationId = $request->input('workspace_user_application_permission_wua_id');
+            $workspaceApplicationPermissionId = $request->input('workspace_user_application_permission_wap_id');
+
+            if (! $workspaceUserApplicationId || ! $workspaceApplicationPermissionId) {
+                return;
+            }
+
+            $workspaceUserApplication = WorkspaceUserApplication::query()->find($workspaceUserApplicationId);
+            $workspaceApplicationPermission = WorkspaceApplicationPermission::query()->find($workspaceApplicationPermissionId);
+
+            if (
+                $workspaceUserApplication
+                && $workspaceApplicationPermission
+                && (int) $workspaceUserApplication->workspace_user_application_workspace_application_id !== (int) $workspaceApplicationPermission->workspace_application_permission_workspace_application_id
+            ) {
+                $validator->errors()->add(
+                    'workspace_user_application_permission_wap_id',
+                    'The selected permission does not belong to the same application as the selected user access.'
+                );
+            }
+        });
+
         if ($validator->fails()) {
             return $this->errorResponse('Validation failed', 422, $validator->errors()->toArray());
         }
@@ -94,8 +161,10 @@ class WorkspaceUserApplicationPermissionController extends Controller
 
         return $this->successResponse(
             $workspaceUserApplicationPermission->fresh()->load([
-                'workspaceUserApplication',
-                'workspaceApplicationPermission',
+                'workspaceUserApplication.workspaceUser',
+                'workspaceUserApplication.workspaceApplication',
+                'workspaceUserApplication.workspaceApplicationRole',
+                'workspaceApplicationPermission.workspaceApplication',
             ]),
             'Workspace user application permission updated successfully'
         );

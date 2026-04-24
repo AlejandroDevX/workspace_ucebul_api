@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class WorkspaceUserController extends Controller
@@ -24,7 +25,7 @@ class WorkspaceUserController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'workspace_user_email' => ['required', 'email', 'max:150', Rule::unique('workspace_users', 'workspace_user_email')],
-            'workspace_user_password' => ['required', 'string', 'min:8', 'max:255'],
+            'workspace_user_document_number' => ['required', 'string', 'max:50', Rule::unique('workspace_users', 'workspace_user_document_number')],
             'workspace_user_name' => ['required', 'string', 'max:100'],
             'workspace_user_last_name' => ['required', 'string', 'max:100'],
         ]);
@@ -34,7 +35,7 @@ class WorkspaceUserController extends Controller
         }
 
         $validated = $validator->validated();
-        $validated['workspace_user_password'] = Hash::make($validated['workspace_user_password']);
+        $validated['workspace_user_password'] = Hash::make(Str::password(16));
 
         $workspaceUser = WorkspaceUser::query()->create($validated);
 
@@ -59,6 +60,15 @@ class WorkspaceUserController extends Controller
                 'email',
                 'max:150',
                 Rule::unique('workspace_users', 'workspace_user_email')->ignore(
+                    $workspaceUser->workspace_user_id,
+                    'workspace_user_id'
+                ),
+            ],
+            'workspace_user_document_number' => [
+                'required',
+                'string',
+                'max:50',
+                Rule::unique('workspace_users', 'workspace_user_document_number')->ignore(
                     $workspaceUser->workspace_user_id,
                     'workspace_user_id'
                 ),

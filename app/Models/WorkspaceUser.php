@@ -28,6 +28,7 @@ class WorkspaceUser extends Authenticatable
 
     protected $fillable = [
         'workspace_user_email',
+        'workspace_user_document_number',
         'workspace_user_password',
         'workspace_user_name',
         'workspace_user_last_name',

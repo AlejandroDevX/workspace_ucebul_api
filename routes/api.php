@@ -2,7 +2,10 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\WorkspaceApplicationController;
+use App\Http\Controllers\Api\WorkspaceApplicationModuleController;
 use App\Http\Controllers\Api\WorkspaceApplicationPermissionController;
+use App\Http\Controllers\Api\WorkspaceApplicationRoleController;
+use App\Http\Controllers\Api\WorkspaceApplicationRolePermissionController;
 use App\Http\Controllers\Api\WorkspaceOtpController;
 use App\Http\Controllers\Api\WorkspaceRoleController;
 use App\Http\Controllers\Api\WorkspaceUserApplicationController;
@@ -26,9 +29,18 @@ Route::prefix('auth')->group(function (): void {
 
 Route::middleware(['auth:sanctum', 'workspace.role:admin,super_admin'])->group(function (): void {
     Route::apiResource('workspace-users', WorkspaceUserController::class)->except(['destroy']);
+    Route::get('workspace-roles', [WorkspaceRoleController::class, 'index']);
+    Route::get('workspace-roles/{workspace_role}', [WorkspaceRoleController::class, 'show']);
+    Route::get('workspace-applications', [WorkspaceApplicationController::class, 'index']);
+    Route::get('workspace-applications/{workspace_application}', [WorkspaceApplicationController::class, 'show']);
     Route::apiResource('workspace-user-roles', WorkspaceUserRoleController::class)->except(['destroy']);
     Route::apiResource('workspace-user-applications', WorkspaceUserApplicationController::class)->except(['destroy']);
+    Route::apiResource('workspace-application-modules', WorkspaceApplicationModuleController::class)->except(['destroy']);
     Route::apiResource('workspace-application-permissions', WorkspaceApplicationPermissionController::class)->except(['destroy']);
+    Route::apiResource('workspace-application-roles', WorkspaceApplicationRoleController::class)->except(['destroy']);
+    Route::apiResource('workspace-application-role-permissions', WorkspaceApplicationRolePermissionController::class)
+        ->parameters(['workspace-application-role-permissions' => 'workspace_arp'])
+        ->except(['destroy']);
     Route::apiResource('workspace-user-application-permissions', WorkspaceUserApplicationPermissionController::class)
         ->parameters(['workspace-user-application-permissions' => 'workspace_uap'])
         ->except(['destroy']);
@@ -42,6 +54,18 @@ Route::middleware(['auth:sanctum', 'workspace.role:super_admin'])->group(functio
     Route::delete('workspace-user-applications/{workspace_user_application}', [WorkspaceUserApplicationController::class, 'destroy'])
         ->name('workspace-user-applications.destroy');
     Route::delete(
+        'workspace-application-roles/{workspace_application_role}',
+        [WorkspaceApplicationRoleController::class, 'destroy']
+    )->name('workspace-application-roles.destroy');
+    Route::delete(
+        'workspace-application-role-permissions/{workspace_arp}',
+        [WorkspaceApplicationRolePermissionController::class, 'destroy']
+    )->name('workspace-application-role-permissions.destroy');
+    Route::delete(
+        'workspace-application-modules/{workspace_application_module}',
+        [WorkspaceApplicationModuleController::class, 'destroy']
+    )->name('workspace-application-modules.destroy');
+    Route::delete(
         'workspace-application-permissions/{workspace_application_permission}',
         [WorkspaceApplicationPermissionController::class, 'destroy']
     )->name('workspace-application-permissions.destroy');
@@ -50,7 +74,13 @@ Route::middleware(['auth:sanctum', 'workspace.role:super_admin'])->group(functio
         [WorkspaceUserApplicationPermissionController::class, 'destroy']
     )->name('workspace-user-application-permissions.destroy');
 
-    Route::apiResource('workspace-roles', WorkspaceRoleController::class);
-    Route::apiResource('workspace-applications', WorkspaceApplicationController::class);
+    Route::post('workspace-roles', [WorkspaceRoleController::class, 'store'])->name('workspace-roles.store');
+    Route::put('workspace-roles/{workspace_role}', [WorkspaceRoleController::class, 'update'])->name('workspace-roles.update');
+    Route::patch('workspace-roles/{workspace_role}', [WorkspaceRoleController::class, 'update']);
+    Route::delete('workspace-roles/{workspace_role}', [WorkspaceRoleController::class, 'destroy'])->name('workspace-roles.destroy');
+    Route::post('workspace-applications', [WorkspaceApplicationController::class, 'store'])->name('workspace-applications.store');
+    Route::put('workspace-applications/{workspace_application}', [WorkspaceApplicationController::class, 'update'])->name('workspace-applications.update');
+    Route::patch('workspace-applications/{workspace_application}', [WorkspaceApplicationController::class, 'update']);
+    Route::delete('workspace-applications/{workspace_application}', [WorkspaceApplicationController::class, 'destroy'])->name('workspace-applications.destroy');
     Route::apiResource('workspace-otps', WorkspaceOtpController::class)->only(['index', 'show', 'destroy']);
 });

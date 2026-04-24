@@ -39,10 +39,16 @@ class WorkspaceApplicationController extends Controller
         return $this->successResponse($workspaceApplication, 'Workspace application created successfully', 201);
     }
 
-    public function show(string $workspace_application): JsonResponse
+    public function show(Request $request, string $workspace_application): JsonResponse
     {
+        $query = WorkspaceApplication::query();
+
+        if ($request->boolean('include_modules')) {
+            $query->with(['applicationModules.applicationPermissions']);
+        }
+
         return $this->successResponse(
-            WorkspaceApplication::query()->findOrFail($workspace_application),
+            $query->findOrFail($workspace_application),
             'Workspace application retrieved successfully'
         );
     }

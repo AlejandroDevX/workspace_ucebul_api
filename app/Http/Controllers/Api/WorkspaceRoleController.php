@@ -23,6 +23,8 @@ class WorkspaceRoleController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'workspace_role_name' => ['required', 'string', 'max:100', Rule::unique('workspace_roles', 'workspace_role_name')],
+            'workspace_role_slug' => ['required', 'string', 'max:100', Rule::unique('workspace_roles', 'workspace_role_slug')],
+            'workspace_role_description' => ['nullable', 'string', 'max:255'],
         ]);
 
         if ($validator->fails()) {
@@ -56,6 +58,16 @@ class WorkspaceRoleController extends Controller
                     'workspace_role_id'
                 ),
             ],
+            'workspace_role_slug' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('workspace_roles', 'workspace_role_slug')->ignore(
+                    $workspaceRole->workspace_role_id,
+                    'workspace_role_id'
+                ),
+            ],
+            'workspace_role_description' => ['nullable', 'string', 'max:255'],
         ]);
 
         if ($validator->fails()) {

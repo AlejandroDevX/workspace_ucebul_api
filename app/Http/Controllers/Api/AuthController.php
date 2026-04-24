@@ -3,10 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\WorkspaceApplication;
+use App\Models\WorkspaceApplicationPermission;
 use App\Models\WorkspaceOtp;
 use App\Models\WorkspaceUser;
+use App\Models\WorkspaceUserApplication;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -39,10 +43,7 @@ class AuthController extends Controller
         $token = $workspaceUser->createToken($tokenName);
 
         return $this->successResponse([
-            'workspace_user' => $workspaceUser->load([
-                'userRoles.workspaceRole',
-                'userApplications.workspaceApplication',
-            ]),
+            'workspace_user' => $this->buildAuthenticatedWorkspaceUser($workspaceUser),
             'workspace_access_token' => $token->plainTextToken,
             'workspace_access_token_type' => 'Bearer',
         ], 'Login successful');
@@ -61,12 +62,40 @@ class AuthController extends Controller
     {
         $workspaceUser = $request->user();
 
+        if (! $request->filled('application_slug') && ! $request->filled('application_id')) {
+            return $this->successResponse(
+                $this->buildAuthenticatedWorkspaceUser($workspaceUser, true),
+                'Authenticated workspace user'
+            );
+        }
+
+        $workspaceApplication = $this->resolveRequestedApplication($request);
+
+        if (! $workspaceApplication && $request->input('application_slug') !== 'workspace') {
+            return $this->errorResponse('Workspace application not found', 404);
+        }
+
+        if ($workspaceApplication && ! $workspaceApplication->workspace_application_is_active) {
+            return $this->errorResponse('Workspace application is inactive', 403);
+        }
+
+        $workspaceUser = $this->buildAuthenticatedWorkspaceUserWithApplicationContext($workspaceUser);
+
+        if ($request->input('application_slug') === 'workspace' || $workspaceApplication?->workspace_application_slug === 'workspace') {
+            return $this->successResponse(
+                $this->enrichWorkspaceContext($workspaceUser, $workspaceApplication),
+                'Authenticated workspace user'
+            );
+        }
+
+        $workspaceUserApplication = $this->findActiveUserApplication($workspaceUser, $workspaceApplication);
+
+        if (! $workspaceUserApplication) {
+            return $this->errorResponse('Workspace user does not have access to this application', 403);
+        }
+
         return $this->successResponse(
-            $workspaceUser?->load([
-                'userRoles.workspaceRole',
-                'userApplications.workspaceApplication',
-                'otps',
-            ]),
+            $this->enrichApplicationContext($workspaceUser, $workspaceApplication, $workspaceUserApplication),
             'Authenticated workspace user'
         );
     }
@@ -198,5 +227,253 @@ class AuthController extends Controller
         return $this->successResponse([
             'workspace_user' => $workspaceUser->fresh(),
         ], 'Password reset successfully');
+    }
+
+    private function buildAuthenticatedWorkspaceUser(?WorkspaceUser $workspaceUser, bool $includeOtps = false): ?WorkspaceUser
+    {
+        if (! $workspaceUser) {
+            return null;
+        }
+
+        $relations = [
+            'userRoles.workspaceRole',
+            'userApplications.workspaceApplication',
+            'userApplications.workspaceApplicationRole.applicationPermissions',
+            'userApplications.userApplicationPermissions.workspaceApplicationPermission',
+        ];
+
+        if ($includeOtps) {
+            $relations[] = 'otps';
+        }
+
+        return $workspaceUser->load($relations);
+    }
+
+    private function buildAuthenticatedWorkspaceUserWithApplicationContext(?WorkspaceUser $workspaceUser): ?WorkspaceUser
+    {
+        if (! $workspaceUser) {
+            return null;
+        }
+
+        return $workspaceUser->load([
+            'userRoles.workspaceRole',
+            'userApplications.workspaceApplication.applicationModules.applicationPermissions',
+            'userApplications.workspaceApplicationRole.applicationPermissions.applicationModule',
+            'userApplications.userApplicationPermissions.workspaceApplicationPermission.applicationModule',
+            'otps',
+        ]);
+    }
+
+    private function resolveRequestedApplication(Request $request): ?WorkspaceApplication
+    {
+        return WorkspaceApplication::query()
+            ->with(['applicationModules.applicationPermissions'])
+            ->when(
+                $request->filled('application_id'),
+                fn ($query) => $query->where('workspace_application_id', $request->integer('application_id')),
+                fn ($query) => $query->where('workspace_application_slug', $request->input('application_slug'))
+            )
+            ->first();
+    }
+
+    private function enrichWorkspaceContext(
+        ?WorkspaceUser $workspaceUser,
+        ?WorkspaceApplication $workspaceApplication
+    ): ?WorkspaceUser {
+        if (! $workspaceUser) {
+            return null;
+        }
+
+        $workspaceUser->userApplications->each(function (WorkspaceUserApplication $userApplication): void {
+            $userApplication->setAttribute(
+                'permissions_by_module',
+                $this->buildPermissionsByModuleForApplication(
+                    $userApplication->workspaceApplication,
+                    $this->getEffectivePermissionsForUserApplication($userApplication)
+                )
+            );
+        });
+
+        $workspaceUser->setAttribute(
+            'workspace_modules',
+            $this->buildWorkspaceModules($workspaceUser, $workspaceApplication)
+        );
+
+        return $workspaceUser;
+    }
+
+    private function enrichApplicationContext(
+        ?WorkspaceUser $workspaceUser,
+        WorkspaceApplication $workspaceApplication,
+        WorkspaceUserApplication $workspaceUserApplication
+    ): ?WorkspaceUser {
+        if (! $workspaceUser) {
+            return null;
+        }
+
+        $workspaceUser->setAttribute('current_application', $workspaceApplication);
+        $workspaceUser->setAttribute('current_application_access', $workspaceUserApplication);
+        $workspaceUser->setAttribute(
+            'current_application_permissions',
+            $this->buildPermissionsByModuleForApplication(
+                $workspaceApplication,
+                $this->getEffectivePermissionsForUserApplication($workspaceUserApplication)
+            )
+        );
+
+        return $workspaceUser;
+    }
+
+    private function findActiveUserApplication(
+        WorkspaceUser $workspaceUser,
+        WorkspaceApplication $workspaceApplication
+    ): ?WorkspaceUserApplication {
+        return $workspaceUser->userApplications
+            ->first(function (WorkspaceUserApplication $userApplication) use ($workspaceApplication): bool {
+                return (int) $userApplication->workspace_user_application_workspace_application_id === (int) $workspaceApplication->workspace_application_id
+                    && (bool) $userApplication->workspace_user_application_is_active;
+            });
+    }
+
+    private function buildWorkspaceModules(
+        WorkspaceUser $workspaceUser,
+        ?WorkspaceApplication $workspaceApplication
+    ): array {
+        if (! $workspaceApplication) {
+            return $this->emptyPermissionsByModule();
+        }
+
+        $workspaceUserApplication = $this->findActiveUserApplication($workspaceUser, $workspaceApplication);
+
+        if ($workspaceUserApplication) {
+            return $this->buildPermissionsByModuleForApplication(
+                $workspaceApplication,
+                $this->getEffectivePermissionsForUserApplication($workspaceUserApplication)
+            );
+        }
+
+        if ($this->userHasGlobalRole($workspaceUser, ['admin', 'super_admin'])) {
+            return $this->buildPermissionsByModuleForApplication(
+                $workspaceApplication,
+                $workspaceApplication->applicationPermissions
+            );
+        }
+
+        return $this->emptyPermissionsByModule($workspaceApplication);
+    }
+
+    private function getEffectivePermissionsForUserApplication(WorkspaceUserApplication $workspaceUserApplication): Collection
+    {
+        $workspaceUserApplication->loadMissing([
+            'workspaceApplication',
+            'workspaceApplicationRole.applicationPermissions.applicationModule',
+            'userApplicationPermissions.workspaceApplicationPermission.applicationModule',
+        ]);
+
+        $rolePermissions = $workspaceUserApplication->workspaceApplicationRole?->applicationPermissions ?? collect();
+
+        $userPermissions = $workspaceUserApplication->userApplicationPermissions
+            ->map(fn ($permission) => $permission->workspaceApplicationPermission)
+            ->filter();
+
+        return new Collection(
+            $this->deduplicatePermissions($rolePermissions->merge($userPermissions))->values()->all()
+        );
+    }
+
+    private function buildPermissionsByModuleForApplication(
+        ?WorkspaceApplication $workspaceApplication,
+        Collection $permissions
+    ): array {
+        $groups = $this->emptyPermissionsByModule($workspaceApplication);
+        $permissions = $this->deduplicatePermissions($permissions);
+
+        $permissions->each(function (WorkspaceApplicationPermission $permission) use (&$groups): void {
+            $permission->loadMissing('applicationModule');
+            $module = $permission->applicationModule;
+            $key = $module?->workspace_application_module_slug ?? 'without_module';
+
+            if (! array_key_exists($key, $groups)) {
+                $groups[$key] = [
+                    'module_name' => $module?->workspace_application_module_name ?? 'Sin módulo',
+                    'module_slug' => $module?->workspace_application_module_slug,
+                    'permissions' => [],
+                ];
+            }
+
+            $groups[$key]['permissions'][] = $permission;
+        });
+
+        return $groups;
+    }
+
+    private function emptyPermissionsByModule(?WorkspaceApplication $workspaceApplication = null): array
+    {
+        $groups = [];
+
+        if ($workspaceApplication) {
+            $workspaceApplication->loadMissing('applicationModules');
+
+            $workspaceApplication->applicationModules
+                ->sortBy([
+                    ['workspace_application_module_order', 'asc'],
+                    ['workspace_application_module_name', 'asc'],
+                ])
+                ->each(function ($module) use (&$groups): void {
+                    $groups[$module->workspace_application_module_slug] = [
+                        'module_name' => $module->workspace_application_module_name,
+                        'module_slug' => $module->workspace_application_module_slug,
+                        'permissions' => [],
+                    ];
+                });
+        }
+
+        $groups['without_module'] = [
+            'module_name' => 'Sin módulo',
+            'module_slug' => null,
+            'permissions' => [],
+        ];
+
+        return $groups;
+    }
+
+    private function deduplicatePermissions(Collection $permissions): Collection
+    {
+        $seenIds = [];
+        $seenSlugs = [];
+
+        return $permissions
+            ->filter()
+            ->filter(function (WorkspaceApplicationPermission $permission) use (&$seenIds, &$seenSlugs): bool {
+                $permissionId = $permission->workspace_application_permission_id;
+                $permissionSlug = $permission->workspace_application_permission_slug;
+
+                if (
+                    ($permissionId && in_array($permissionId, $seenIds, true))
+                    || ($permissionSlug && in_array($permissionSlug, $seenSlugs, true))
+                ) {
+                    return false;
+                }
+
+                if ($permissionId) {
+                    $seenIds[] = $permissionId;
+                }
+
+                if ($permissionSlug) {
+                    $seenSlugs[] = $permissionSlug;
+                }
+
+                return true;
+            })
+            ->values();
+    }
+
+    private function userHasGlobalRole(WorkspaceUser $workspaceUser, array $roles): bool
+    {
+        return $workspaceUser->userRoles
+            ->contains(function ($userRole) use ($roles): bool {
+                return $userRole->workspaceRole
+                    && in_array($userRole->workspaceRole->workspace_role_name, $roles, true);
+            });
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\WorkspaceApplicationRole;
 use App\Models\WorkspaceUserApplication;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,7 +16,12 @@ class WorkspaceUserApplicationController extends Controller
     {
         return $this->successResponse(
             WorkspaceUserApplication::query()
-                ->with(['workspaceUser', 'workspaceApplication'])
+                ->with([
+                    'workspaceUser',
+                    'workspaceApplication',
+                    'workspaceApplicationRole.applicationPermissions.applicationModule',
+                    'userApplicationPermissions.workspaceApplicationPermission.applicationModule',
+                ])
                 ->orderByDesc('workspace_user_application_id')
                 ->get(),
             'Workspace user applications retrieved successfully'
@@ -36,8 +42,34 @@ class WorkspaceUserApplicationController extends Controller
                         $request->input('workspace_user_application_workspace_user_id')
                     )),
             ],
+            'workspace_user_application_workspace_application_role_id' => [
+                'nullable',
+                'integer',
+                'exists:workspace_application_roles,workspace_application_role_id',
+            ],
             'workspace_user_application_is_active' => ['required', 'boolean'],
         ]);
+
+        $validator->after(function ($validator) use ($request): void {
+            $workspaceApplicationRoleId = $request->input('workspace_user_application_workspace_application_role_id');
+            $workspaceApplicationId = $request->input('workspace_user_application_workspace_application_id');
+
+            if (! $workspaceApplicationRoleId || ! $workspaceApplicationId) {
+                return;
+            }
+
+            $workspaceApplicationRole = WorkspaceApplicationRole::query()->find($workspaceApplicationRoleId);
+
+            if (
+                $workspaceApplicationRole
+                && (int) $workspaceApplicationRole->workspace_application_role_workspace_application_id !== (int) $workspaceApplicationId
+            ) {
+                $validator->errors()->add(
+                    'workspace_user_application_workspace_application_role_id',
+                    'The selected application role does not belong to the selected application.'
+                );
+            }
+        });
 
         if ($validator->fails()) {
             return $this->errorResponse('Validation failed', 422, $validator->errors()->toArray());
@@ -46,7 +78,12 @@ class WorkspaceUserApplicationController extends Controller
         $workspaceUserApplication = WorkspaceUserApplication::query()->create($validator->validated());
 
         return $this->successResponse(
-            $workspaceUserApplication->load(['workspaceUser', 'workspaceApplication']),
+            $workspaceUserApplication->load([
+                'workspaceUser',
+                'workspaceApplication',
+                'workspaceApplicationRole.applicationPermissions.applicationModule',
+                'userApplicationPermissions.workspaceApplicationPermission.applicationModule',
+            ]),
             'Workspace user application created successfully',
             201
         );
@@ -56,7 +93,12 @@ class WorkspaceUserApplicationController extends Controller
     {
         return $this->successResponse(
             WorkspaceUserApplication::query()
-                ->with(['workspaceUser', 'workspaceApplication'])
+                ->with([
+                    'workspaceUser',
+                    'workspaceApplication',
+                    'workspaceApplicationRole.applicationPermissions.applicationModule',
+                    'userApplicationPermissions.workspaceApplicationPermission.applicationModule',
+                ])
                 ->findOrFail($workspace_user_application),
             'Workspace user application retrieved successfully'
         );
@@ -82,8 +124,34 @@ class WorkspaceUserApplicationController extends Controller
                         'workspace_user_application_id'
                     ),
             ],
+            'workspace_user_application_workspace_application_role_id' => [
+                'nullable',
+                'integer',
+                'exists:workspace_application_roles,workspace_application_role_id',
+            ],
             'workspace_user_application_is_active' => ['required', 'boolean'],
         ]);
+
+        $validator->after(function ($validator) use ($request): void {
+            $workspaceApplicationRoleId = $request->input('workspace_user_application_workspace_application_role_id');
+            $workspaceApplicationId = $request->input('workspace_user_application_workspace_application_id');
+
+            if (! $workspaceApplicationRoleId || ! $workspaceApplicationId) {
+                return;
+            }
+
+            $workspaceApplicationRole = WorkspaceApplicationRole::query()->find($workspaceApplicationRoleId);
+
+            if (
+                $workspaceApplicationRole
+                && (int) $workspaceApplicationRole->workspace_application_role_workspace_application_id !== (int) $workspaceApplicationId
+            ) {
+                $validator->errors()->add(
+                    'workspace_user_application_workspace_application_role_id',
+                    'The selected application role does not belong to the selected application.'
+                );
+            }
+        });
 
         if ($validator->fails()) {
             return $this->errorResponse('Validation failed', 422, $validator->errors()->toArray());
@@ -92,7 +160,12 @@ class WorkspaceUserApplicationController extends Controller
         $workspaceUserApplication->update($validator->validated());
 
         return $this->successResponse(
-            $workspaceUserApplication->fresh()->load(['workspaceUser', 'workspaceApplication']),
+            $workspaceUserApplication->fresh()->load([
+                'workspaceUser',
+                'workspaceApplication',
+                'workspaceApplicationRole.applicationPermissions.applicationModule',
+                'userApplicationPermissions.workspaceApplicationPermission.applicationModule',
+            ]),
             'Workspace user application updated successfully'
         );
     }

@@ -32,6 +32,7 @@
                 <a href="#workspace-users">Workspace Users</a>
                 <a href="#workspace-user-roles">Workspace User Roles</a>
                 <a href="#workspace-user-applications">Workspace User Applications</a>
+                <a href="#workspace-application-modules">Workspace Application Modules</a>
                 <a href="#workspace-application-permissions">Application Permissions</a>
                 <a href="#workspace-user-application-permissions">User Application Permissions</a>
                 <a href="#workspace-roles">Workspace Roles</a>
@@ -99,7 +100,33 @@
                 <li>Los endpoints protegidos requieren el header <code>Authorization: Bearer {token}</code>.</li>
                 <li>Los <code>show</code>, <code>update</code> y <code>destroy</code> devuelven 404 si el registro no existe.</li>
                 <li>El endpoint <code>forgot-password</code> devuelve el OTP en la respuesta para el MVP actual.</li>
+                <li>Los permisos de aplicación pueden estar asociados a módulos; si no tienen módulo quedan bajo <code>without_module</code>.</li>
             </ul>
+        </section>
+
+        <section class="card">
+            <h3>Permisos agrupados por módulo</h3>
+            <p>Cuando un endpoint devuelve permisos organizados, usa el <code>module_slug</code> como clave estable para frontend.</p>
+            <pre><code>{
+  "permissions": {
+    "users": {
+      "module_name": "Usuarios",
+      "module_slug": "users",
+      "permissions": [
+        {
+          "workspace_application_permission_id": 1,
+          "workspace_application_permission_name": "Ver usuarios",
+          "workspace_application_permission_slug": "users.view"
+        }
+      ]
+    },
+    "without_module": {
+      "module_name": "Sin módulo",
+      "module_slug": null,
+      "permissions": []
+    }
+  }
+}</code></pre>
         </section>
 
         <h2 id="auth" class="section-title">Auth</h2>
@@ -179,14 +206,17 @@
                     <span class="access auth">Auth</span>
                 </div>
                 <div class="endpoint-body">
-                    <p>Devuelve el usuario autenticado con roles, aplicaciones y OTPs relacionados.</p>
+                    <p>Devuelve el usuario autenticado con roles, aplicaciones y OTPs relacionados. Si no se envía contexto de aplicación, mantiene la respuesta actual.</p>
                     <div class="endpoint-grid">
                         <section class="mini-card">
-                            <h4>Body</h4>
-                            <pre><code>Sin body.</code></pre>
+                            <h4>Query params opcionales</h4>
+                            <pre><code>GET /api/auth/me
+GET /api/auth/me?application_slug=workspace
+GET /api/auth/me?application_slug=ucebul-app
+GET /api/auth/me?application_id=1</code></pre>
                         </section>
                         <section class="mini-card">
-                            <h4>Respuesta 200</h4>
+                            <h4>Respuesta 200 sin contexto</h4>
                             <pre><code>{
   "success": true,
   "message": "Authenticated workspace user",
@@ -200,6 +230,101 @@
   "meta": []
 }</code></pre>
                         </section>
+                    </div>
+                    <div class="endpoint-grid">
+                        <section class="mini-card">
+                            <h4>Respuesta app específica</h4>
+                            <pre><code>{
+  "success": true,
+  "message": "Authenticated workspace user",
+  "data": {
+    "workspace_user_id": 1,
+    "workspace_user_email": "admin@workspace.com",
+    "workspace_user_name": "Admin",
+    "workspace_user_last_name": "Root",
+    "user_roles": [...],
+    "user_applications": [...],
+    "current_application": {
+      "workspace_application_id": 5,
+      "workspace_application_name": "UCEBUL App",
+      "workspace_application_slug": "ucebul-app",
+      "workspace_application_url": "https://app.ucebul.com",
+      "workspace_application_is_active": true
+    },
+    "current_application_access": {
+      "workspace_user_application_id": 10,
+      "workspace_user_application_is_active": true,
+      "workspace_application_role": {...}
+    },
+    "current_application_permissions": {
+      "users": {
+        "module_name": "Usuarios",
+        "module_slug": "users",
+        "permissions": [
+          {
+            "workspace_application_permission_id": 1,
+            "workspace_application_permission_name": "Ver usuarios",
+            "workspace_application_permission_slug": "users.view"
+          }
+        ]
+      },
+      "without_module": {
+        "module_name": "Sin módulo",
+        "module_slug": null,
+        "permissions": []
+      }
+    },
+    "otps": [...]
+  },
+  "meta": []
+}</code></pre>
+                        </section>
+                        <section class="mini-card">
+                            <h4>Respuesta desde Workspace</h4>
+                            <pre><code>{
+  "success": true,
+  "message": "Authenticated workspace user",
+  "data": {
+    "workspace_user_id": 1,
+    "workspace_user_email": "admin@workspace.com",
+    "user_roles": [...],
+    "user_applications": [
+      {
+        "workspace_user_application_id": 10,
+        "workspace_user_application_is_active": true,
+        "workspace_application": {...},
+        "workspace_application_role": {...},
+        "permissions_by_module": {
+          "users": {
+            "module_name": "Usuarios",
+            "module_slug": "users",
+            "permissions": [...]
+          },
+          "without_module": {
+            "module_name": "Sin módulo",
+            "module_slug": null,
+            "permissions": []
+          }
+        }
+      }
+    ],
+    "workspace_modules": {
+      "without_module": {
+        "module_name": "Sin módulo",
+        "module_slug": null,
+        "permissions": []
+      }
+    },
+    "otps": [...]
+  },
+  "meta": []
+}</code></pre>
+                        </section>
+                    </div>
+                    <div class="note">
+                        Con <code>application_slug</code> o <code>application_id</code>, la aplicación debe existir y estar activa.
+                        Para apps específicas el usuario debe tener acceso activo en <code>workspace_user_applications</code>.
+                        Los permisos combinan rol de aplicación y permisos directos, sin duplicados por ID o slug.
                     </div>
                 </div>
             </article>
@@ -725,6 +850,162 @@
             </article>
         </section>
 
+        <h2 id="workspace-application-modules" class="section-title">Workspace Application Modules</h2>
+        <section class="endpoint-list">
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/workspace-application-modules</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>Lista módulos de aplicación ordenados por <code>workspace_application_module_order</code>. Soporta filtros por aplicación.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Filtros</h4><pre><code>GET /api/workspace-application-modules?workspace_application_id=1
+GET /api/workspace-application-modules?application_slug=ucebul-app</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace application modules retrieved successfully",
+  "data": [
+    {
+      "workspace_application_module_id": 1,
+      "workspace_application_module_workspace_application_id": 1,
+      "workspace_application_module_name": "Usuarios",
+      "workspace_application_module_slug": "users",
+      "workspace_application_module_description": "Gestión de usuarios",
+      "workspace_application_module_icon": "users",
+      "workspace_application_module_order": 1,
+      "workspace_application_module_is_active": true,
+      "permissions": [...]
+    }
+  ],
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/workspace-application-modules</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>El <code>workspace_application_module_slug</code> debe ser único dentro de la misma aplicación.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>{
+  "workspace_application_module_workspace_application_id": 1,
+  "workspace_application_module_name": "Usuarios",
+  "workspace_application_module_slug": "users",
+  "workspace_application_module_description": "Gestión de usuarios",
+  "workspace_application_module_icon": "users",
+  "workspace_application_module_order": 1,
+  "workspace_application_module_is_active": true
+}</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 201</h4><pre><code>{
+  "success": true,
+  "message": "Workspace application module created successfully",
+  "data": {
+    "workspace_application_module_id": 1,
+    "workspace_application_module_workspace_application_id": 1,
+    "workspace_application_module_name": "Usuarios",
+    "workspace_application_module_slug": "users",
+    "workspace_application_module_description": "Gestión de usuarios",
+    "workspace_application_module_icon": "users",
+    "workspace_application_module_order": 1,
+    "workspace_application_module_is_active": true,
+    "permissions": []
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/workspace-application-modules/{workspace_application_module}</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace application module retrieved successfully",
+  "data": {
+    "workspace_application_module_id": 1,
+    "workspace_application_module_workspace_application_id": 1,
+    "workspace_application_module_name": "Usuarios",
+    "workspace_application_module_slug": "users",
+    "workspace_application_module_description": "Gestión de usuarios",
+    "workspace_application_module_icon": "users",
+    "workspace_application_module_order": 1,
+    "workspace_application_module_is_active": true,
+    "permissions": [
+      {
+        "workspace_application_permission_id": 1,
+        "workspace_application_permission_name": "Ver usuarios",
+        "workspace_application_permission_slug": "users.view"
+      }
+    ]
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method put">PUT/PATCH</span>
+                    <span class="path">/api/workspace-application-modules/{workspace_application_module}</span>
+                    <span class="access admin">Admin / Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>{
+  "workspace_application_module_name": "Usuarios",
+  "workspace_application_module_slug": "users",
+  "workspace_application_module_description": "Gestión de usuarios del sistema",
+  "workspace_application_module_icon": "users",
+  "workspace_application_module_order": 1,
+  "workspace_application_module_is_active": true
+}</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace application module updated successfully",
+  "data": {
+    "workspace_application_module_id": 1,
+    "workspace_application_module_name": "Usuarios",
+    "workspace_application_module_slug": "users",
+    "permissions": [...]
+  },
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+            <article class="endpoint-card">
+                <div class="endpoint-head">
+                    <span class="method delete">DELETE</span>
+                    <span class="path">/api/workspace-application-modules/{workspace_application_module}</span>
+                    <span class="access super-admin">Super Admin</span>
+                </div>
+                <div class="endpoint-body">
+                    <p>Elimina el módulo. Los permisos asociados quedan con <code>workspace_application_permission_workspace_application_module_id</code> en <code>null</code>.</p>
+                    <div class="endpoint-grid">
+                        <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
+                        <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
+  "success": true,
+  "message": "Workspace application module deleted successfully",
+  "data": null,
+  "meta": []
+}</code></pre></section>
+                    </div>
+                </div>
+            </article>
+        </section>
+
         <h2 id="workspace-application-permissions" class="section-title">Workspace Application Permissions</h2>
         <section class="endpoint-list">
             <article class="endpoint-card">
@@ -734,7 +1015,7 @@
                     <span class="access admin">Admin / Super Admin</span>
                 </div>
                 <div class="endpoint-body">
-                    <p>Lista permisos por aplicación con la relación <code>workspaceApplication</code>.</p>
+                    <p>Lista permisos por aplicación con la relación <code>workspaceApplication</code> y el módulo asignado si existe.</p>
                     <div class="endpoint-grid">
                         <section class="mini-card"><h4>Body</h4><pre><code>Sin body.</code></pre></section>
                         <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
@@ -744,9 +1025,11 @@
     {
       "workspace_application_permission_id": 3,
       "workspace_application_permission_workspace_application_id": 5,
+      "workspace_application_permission_workspace_application_module_id": 1,
       "workspace_application_permission_name": "Read",
       "workspace_application_permission_slug": "read",
-      "workspace_application": {...}
+      "workspace_application": {...},
+      "application_module": {...}
     }
   ],
   "meta": []
@@ -761,19 +1044,23 @@
                     <span class="access admin">Admin / Super Admin</span>
                 </div>
                 <div class="endpoint-body">
+                    <p>El campo <code>workspace_application_permission_workspace_application_module_id</code> es opcional. Si se envía, el módulo debe pertenecer a la misma aplicación del permiso; si no se envía, el permiso queda bajo <code>Sin módulo</code>.</p>
                     <div class="endpoint-grid">
                         <section class="mini-card"><h4>Body</h4><pre><code>{
   "workspace_application_permission_workspace_application_id": 5,
-  "workspace_application_permission_name": "Read",
-  "workspace_application_permission_slug": "read",
-  "workspace_application_permission_description": "Can read records"
+  "workspace_application_permission_workspace_application_module_id": 1,
+  "workspace_application_permission_name": "Ver usuarios",
+  "workspace_application_permission_slug": "users.view",
+  "workspace_application_permission_description": "Puede ver usuarios"
 }</code></pre></section>
                         <section class="mini-card"><h4>Respuesta 201</h4><pre><code>{
   "success": true,
   "message": "Workspace application permission created successfully",
   "data": {
     "workspace_application_permission_id": 3,
-    "workspace_application": {...}
+    "workspace_application_permission_workspace_application_module_id": 1,
+    "workspace_application": {...},
+    "application_module": {...}
   },
   "meta": []
 }</code></pre></section>
@@ -794,7 +1081,9 @@
   "message": "Workspace application permission retrieved successfully",
   "data": {
     "workspace_application_permission_id": 3,
-    "workspace_application": {...}
+    "workspace_application_permission_workspace_application_module_id": 1,
+    "workspace_application": {...},
+    "application_module": {...}
   },
   "meta": []
 }</code></pre></section>
@@ -808,19 +1097,23 @@
                     <span class="access admin">Admin / Super Admin</span>
                 </div>
                 <div class="endpoint-body">
+                    <p>También acepta <code>workspace_application_permission_workspace_application_module_id</code> opcional y valida que pertenezca a la misma aplicación.</p>
                     <div class="endpoint-grid">
                         <section class="mini-card"><h4>Body</h4><pre><code>{
   "workspace_application_permission_workspace_application_id": 5,
-  "workspace_application_permission_name": "Read",
-  "workspace_application_permission_slug": "read",
-  "workspace_application_permission_description": "Can read records"
+  "workspace_application_permission_workspace_application_module_id": 1,
+  "workspace_application_permission_name": "Ver usuarios",
+  "workspace_application_permission_slug": "users.view",
+  "workspace_application_permission_description": "Puede ver usuarios"
 }</code></pre></section>
                         <section class="mini-card"><h4>Respuesta 200</h4><pre><code>{
   "success": true,
   "message": "Workspace application permission updated successfully",
   "data": {
     "workspace_application_permission_id": 3,
-    "workspace_application": {...}
+    "workspace_application_permission_workspace_application_module_id": 1,
+    "workspace_application": {...},
+    "application_module": {...}
   },
   "meta": []
 }</code></pre></section>
