@@ -123,6 +123,9 @@ class DatabaseSeeder extends Seeder
             ],
         ];
 
+        $this->call(WorkspaceErpApplicationSeeder::class);
+        $this->call(WorkspaceErpUsersSeeder::class);
+
         foreach ($modules as $moduleSlug => $moduleData) {
             $workspaceApplicationModule = WorkspaceApplicationModule::query()->updateOrCreate(
                 [
