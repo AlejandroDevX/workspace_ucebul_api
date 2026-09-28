@@ -14,6 +14,10 @@ return [
     |
     */
 
+    'forum' => [
+        'platform_url' => env('FORUM_PLATFORM_URL'),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],
