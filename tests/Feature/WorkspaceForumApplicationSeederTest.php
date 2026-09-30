@@ -33,7 +33,7 @@ it('registers the application, modules, exact permissions and role matrix', func
         'courses' => ['view', 'create', 'update', 'delete', 'publish'],
         'lessons' => ['view', 'create', 'update', 'delete', 'publish'],
         'learning' => ['enroll', 'view', 'progress'],
-        'community' => ['view', 'create', 'update', 'delete', 'reply', 'react', 'accept_answer'],
+        'community' => ['view', 'create', 'update', 'delete', 'reply', 'react', 'accept_answer', 'manage-any'],
         'moderation' => ['view', 'manage', 'reports'],
     ];
     $modules = $application->applicationModules()->orderBy('workspace_application_module_order')->get();
@@ -80,8 +80,8 @@ it('registers the application, modules, exact permissions and role matrix', func
             ->and($role->applicationPermissions->pluck('workspace_application_permission_slug')->all())
             ->toEqualCanonicalizing($matrix[$role->workspace_application_role_slug]);
     }
-    $this->assertDatabaseCount('workspace_application_permissions', 23);
-    $this->assertDatabaseCount('workspace_application_role_permissions', 62);
+    $this->assertDatabaseCount('workspace_application_permissions', 24);
+    $this->assertDatabaseCount('workspace_application_role_permissions', 63);
     $this->assertDatabaseCount('workspace_users', 0);
     $this->assertDatabaseCount('workspace_user_applications', 0);
 });

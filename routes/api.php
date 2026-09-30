@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\WorkspaceUserApplicationController;
 use App\Http\Controllers\Api\WorkspaceUserApplicationPermissionController;
 use App\Http\Controllers\Api\WorkspaceUserController;
 use App\Http\Controllers\Api\WorkspaceUserRoleController;
+use App\Http\Controllers\Api\WorkspaceUserSummaryController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->group(function (): void {
@@ -26,6 +27,9 @@ Route::prefix('auth')->group(function (): void {
         Route::get('validate-token', [AuthController::class, 'validateToken']);
     });
 });
+
+Route::middleware('auth:sanctum')->get('workspace-user-summaries', [WorkspaceUserSummaryController::class, 'index'])
+    ->name('workspace-user-summaries.index');
 
 Route::middleware(['auth:sanctum', 'workspace.role:admin,super_admin'])->group(function (): void {
     Route::apiResource('workspace-users', WorkspaceUserController::class)->except(['destroy']);

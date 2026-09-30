@@ -208,6 +208,7 @@ class WorkspaceForumApplicationSeeder extends Seeder
                     'forum.community.reply' => 'Responder preguntas',
                     'forum.community.react' => 'Reaccionar a publicaciones',
                     'forum.community.accept_answer' => 'Aceptar respuestas',
+                    'forum.community.manage-any' => 'Gestionar categorías y publicaciones de otros',
                 ],
             ],
             'moderation' => [
